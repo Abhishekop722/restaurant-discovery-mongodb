@@ -1,13 +1,15 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config/index.js';
+import { connectMongo } from './infra/mongo/client.js';
 
 const config = loadConfig();
-// MongoDB wiring arrives in the next block; until then readiness is always true.
-const app = buildApp(config, { isReady: () => Promise.resolve(true) });
+const mongo = await connectMongo(config);
+const app = buildApp(config, { isReady: mongo.ping });
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, 'shutting down');
-  await app.close();
+  await app.close(); // stop accepting requests and drain in-flight ones
+  await mongo.close();
   process.exit(0);
 };
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
