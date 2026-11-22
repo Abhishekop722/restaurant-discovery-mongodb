@@ -1,0 +1,16 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  MONGODB_URI: z.string().min(1).default('mongodb://localhost:27017/?replicaSet=rs0'),
+  MONGODB_DB: z.string().min(1).default('biteexpress'),
+});
+
+export type Config = z.infer<typeof envSchema>;
+
+/** Parses and validates environment variables once, failing fast on bad config. */
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  return envSchema.parse(env);
+}
