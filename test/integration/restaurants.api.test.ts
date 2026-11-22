@@ -74,7 +74,7 @@ beforeAll(async () => {
   const restaurants = new RestaurantService(new MongoRestaurantRepository(mongo.db, 5000), TENANT);
   app = buildApp({ LOG_LEVEL: 'silent' }, { isReady: mongo.ping, restaurants });
 
-  // three restaurants due north of (10, 20): ~0 km, ~1.11 km and ~5.56 km away
+  // three restaurants due north of (10, 20): ~0 km, ~1.11 km and ~5.57 km away (MongoDB uses a 6378.1 km Earth radius)
   for (const [name, lat] of [
     ['Far', 10.05],
     ['Near', 10],
@@ -226,7 +226,11 @@ describe('GET /v1/restaurants with a location', () => {
   it('orders by distance and reports it in km', async () => {
     const { data } = await list('lat=10&lng=20&radiusKm=10&city=Testville');
     expect(data.map((r) => r.name)).toEqual(['Near', 'Mid', 'Far']);
-    expect(data.map((r) => r.distanceKm)).toEqual([0, 1.11, 5.56]);
+    // compare with a tolerance: the exact figure depends on the Earth radius MongoDB assumes
+    const km = data.map((r) => r.distanceKm ?? NaN);
+    [0, 1.11, 5.57].forEach((expected, i) => {
+      expect(km[i]).toBeCloseTo(expected, 1);
+    });
   });
 
   it('excludes results beyond the radius', async () => {
