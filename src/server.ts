@@ -1,10 +1,24 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config/index.js';
 import { connectMongo } from './infra/mongo/client.js';
+import { restaurantsCollection } from './infra/mongo/collections.js';
+import { ensureIndexes } from './infra/mongo/indexes.js';
+import { resolveSeedFile } from './infra/seed/resolve-file.js';
+import { seedFromFile } from './infra/seed/seed.js';
 
 const config = loadConfig();
 const mongo = await connectMongo(config);
 const app = buildApp(config, { isReady: mongo.ping });
+
+await ensureIndexes(mongo.db);
+if (
+  config.SEED_ON_START &&
+  (await restaurantsCollection(mongo.db).estimatedDocumentCount()) === 0
+) {
+  const file = resolveSeedFile(config.SEED_FILE);
+  app.log.info({ file }, 'collection empty, seeding');
+  app.log.info(await seedFromFile(mongo.db, file, config.TENANT_ID), 'seed complete');
+}
 
 const shutdown = async (signal: string): Promise<void> => {
   app.log.info({ signal }, 'shutting down');

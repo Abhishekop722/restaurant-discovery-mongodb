@@ -30,8 +30,11 @@ services:
       LOG_LEVEL: info
       MONGODB_URI: mongodb://mongo:27017/?replicaSet=rs0
       MONGODB_DB: biteexpress
+      SEED_ON_START: 'true' # loads data/zomato.csv if present, else data/sample.csv, when empty
     ports:
       - '3000:3000'
+    volumes:
+      - ./data:/app/data:ro
     restart: unless-stopped
 
 volumes:

@@ -2,9 +2,35 @@
 
 Restaurant discovery API for BiteExpress, backed by MongoDB. Built as the MVP for the FDE take-home.
 
-> Status: block 0 (tooling skeleton). Endpoints, Docker and seed data follow in later commits.
+> Status: tooling, Docker stack and data seeding done. REST endpoints follow in later commits.
 
-## Quick start
+## Run with Docker
+
+```bash
+docker compose up --build        # API on :3000, MongoDB replica set on :27017
+curl localhost:3000/health/ready
+```
+
+On first start the API creates indexes and, if the collection is empty, seeds it from
+`data/zomato.csv` (full dataset, git-ignored) or else the committed `data/sample.csv`
+(472 representative rows). Drop the Kaggle file at `data/zomato.csv` to load all 9,551.
+Re-seed manually with `pnpm seed` (idempotent upsert on `tenantId + externalId`).
+
+## Data cleaning decisions
+
+| Source quirk                                               | Handling                                                         |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- |
+| File is not valid UTF-8 (some names are mojibake)          | Strict UTF-8 first, Latin-1 fallback; corrupted names kept as is |
+| `Currency` column is wrong (Philippines = "Botswana Pula") | Currency derived from the country code                           |
+| 497 rows with `0,0` coordinates                            | `location` omitted, never stored as 0,0                          |
+| 2,148 unrated rows (rating 0)                              | `rating.average` omitted so 0 does not skew averages; votes kept |
+| 18 rows with cost for two = 0                              | `pricing.averageCostForTwo` omitted                              |
+| 9 rows with no cuisines                                    | `cuisines: []`                                                   |
+| Comma-separated `Cuisines` string                          | Trimmed, de-duplicated array (multikey index)                    |
+
+Lat/lng become a GeoJSON `Point` as `[longitude, latitude]` for the `2dsphere` index.
+
+## Quick start (without Docker)
 
 ```bash
 nvm use            # Node 22

@@ -6,6 +6,11 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   MONGODB_URI: z.string().min(1).default('mongodb://localhost:27017/?replicaSet=rs0'),
   MONGODB_DB: z.string().min(1).default('biteexpress'),
+  /** Business this deployment serves; every document and index is scoped by it. */
+  TENANT_ID: z.string().min(1).default('biteexpress'),
+  /** Load the dataset on startup when the collection is empty. */
+  SEED_ON_START: z.stringbool().default(false),
+  SEED_FILE: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof envSchema>;
