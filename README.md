@@ -2,7 +2,7 @@
 
 Restaurant discovery API for BiteExpress, backed by MongoDB. Built as the MVP for the FDE take-home.
 
-> Status: tooling, Docker, seeding, create/get/list endpoints done. Natural-language search is next.
+> Status: tooling, Docker, seeding, create/get/list and natural-language search done.
 
 ## Run with Docker
 
@@ -42,6 +42,53 @@ values (so `gurgaon`, `Gurugram` and `GURGAON` are equality matches that use the
 case-insensitive regexes); every sort ends in `_id` for stable pagination; `$geoNear` is used only
 when a point is given, and other sorts then run in memory over the radius-bounded set; errors share
 one envelope with a request id; indexes are reconciled with the declared set on every start.
+
+## Natural-language search
+
+`GET /v1/restaurants/search?q=...` turns free text into the same filters the list endpoint uses
+(it is a parsing layer, not a second query path). The response echoes `interpretation` and
+`unparsedTerms`, so you can always see what was understood.
+
+```bash
+curl -G localhost:3000/v1/restaurants/search --data-urlencode 'q=Best restaurants in Gurgaon with South Indian Food'
+curl -G localhost:3000/v1/restaurants/search --data-urlencode 'q=Restaurants in Gurgaon under Rs. 1000 for two'
+curl -G localhost:3000/v1/restaurants/search --data-urlencode 'q=Nearest place that serves Vada Pav' \
+  -d 'lat=28.4595&lng=77.0266'
+```
+
+| The text says                                                      | It becomes                                                    |
+| ------------------------------------------------------------------ | ------------------------------------------------------------- |
+| a known city (`gurgaon`, `Gurugram`, `delhi`)                      | `city` (aliases resolve to the stored spelling)               |
+| a known cuisine, singular or plural                                | `cuisine` filter (any-of)                                     |
+| `under/below/max/up to` + amount (`Rs`, `₹`, `1.5k`, `per person`) | `maxCost` (+ currency; per-person is doubled)                 |
+| `rated above 4`, `4+ stars`, `at least 3.5`                        | `minRating`                                                   |
+| `nearest`, `closest`, `near me`, `nearby`                          | sort by distance (needs `lat` and `lng`, else a clear `400`)  |
+| `within 3 km`, `within 500 m`                                      | `radiusKm` (needs `lat` and `lng`)                            |
+| `best`, `top rated`, `highly rated`                                | sort by weighted score (see below)                            |
+| `cheap` / `cheapest`                                               | price range <= 2 / sort by cost                               |
+| a dish (`vada pav`, `dosa`, `biryani`...)                          | name match, plus a cuisine only where the cuisine is the dish |
+| anything unrecognised                                              | name search, listed in `unparsedTerms`                        |
+
+Explicit parameters (`city`, `cuisine`, `maxCost`, `sort`, ...) override what was parsed.
+
+**"Best" is not "highest average".** A 5.0 from 3 votes should not beat a 4.5 from 300, so it
+ranks by the Bayesian weighted score `v/(v+m) * R + m/(v+m) * C` (R = rating, v = votes,
+C = mean rating of all rated restaurants, m = `RANKING_MIN_VOTES`, default 100; the dataset's median
+is about 60 votes). Only rated restaurants take part, and the score is returned with each result.
+The formula is computed in MongoDB and checked against a plain TypeScript implementation in tests.
+
+**Honest limits**
+
+- The dataset has cuisines, not dishes. "Vada pav" matches restaurants _named_ that (the data has
+  such places, all typed `Street Food`); it deliberately does not return every street-food stall.
+  A dish with no matching name returns nothing rather than something unrelated.
+- A currency is assumed (`DEFAULT_CURRENCY`, default `INR`) when an amount names none; `$` means USD.
+- Free-text name search is a case-insensitive regex, because `$text` cannot be combined with
+  `$geoNear`. It is bounded by the other filters; Atlas Search would replace it.
+- The weighted sort runs in memory over the filtered set (fine at this scale; a precomputed
+  score field would be the next step).
+- The parser sits behind a `QueryParser` interface, so an LLM-backed parser that fills the same
+  structure (validated, with this one as fallback) can be added without touching the rest.
 
 ## Data cleaning decisions
 

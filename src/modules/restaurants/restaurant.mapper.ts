@@ -44,6 +44,7 @@ export function toListItem(row: ListRow): ListItem {
     votes: row.votes,
     averageCostForTwo: row.averageCostForTwo ?? null,
     currency: row.currency,
+    ...(row.score !== undefined && { score: Math.round(row.score * 100) / 100 }),
     ...(row.distanceMeters !== undefined && {
       distanceKm: Math.round(row.distanceMeters / 10) / 100,
     }),

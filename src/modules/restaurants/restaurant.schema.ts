@@ -97,6 +97,10 @@ export const SORT_KEYS = [
 ] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
+/** `best` is the weighted score (ratings adjusted for vote count); only the search endpoint offers it. */
+export const SEARCH_SORT_KEYS = [...SORT_KEYS, 'best'] as const;
+export type SearchSortKey = (typeof SEARCH_SORT_KEYS)[number];
+
 /** Accepts `cuisine=a&cuisine=b` and `cuisine=a,b`. */
 const listOfStrings = z.union([z.string(), z.array(z.string())]).transform((value) =>
   (Array.isArray(value) ? value : [value])
@@ -128,7 +132,7 @@ export function refineGeo(
     lat?: number | undefined;
     lng?: number | undefined;
     radiusKm?: number | undefined;
-    sort?: SortKey | undefined;
+    sort?: string | undefined;
   },
   ctx: z.RefinementCtx,
 ): void {
@@ -181,6 +185,8 @@ export const restaurantResponseSchema = z.object({
 });
 
 export const listItemSchema = z.object({
+  /** Weighted score; present only for sort=best. */
+  score: z.number().optional(),
   id: z.string(),
   name: z.string(),
   address: z.string(),
@@ -207,4 +213,35 @@ export const errorResponseSchema = z.object({
     requestId: z.string(),
     details: z.unknown().optional(),
   }),
+});
+
+export const searchQuerySchema = z
+  .strictObject({
+    /** Free text, e.g. "best south indian in gurgaon under rs 1000". */
+    q: z.string().trim().min(1).max(200),
+    ...listFields,
+    sort: z.enum(SEARCH_SORT_KEYS).optional(),
+  })
+  .superRefine(refineGeo);
+export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
+/** How the query was understood, echoed so users and tests can see and correct it. */
+export const interpretationSchema = z.object({
+  city: z.string().optional(),
+  cuisines: z.array(z.string()).optional(),
+  dish: z.array(z.string()).optional(),
+  name: z.string().optional(),
+  minRating: z.number().optional(),
+  maxCostForTwo: z.number().optional(),
+  currency: z.string().optional(),
+  maxPriceRange: z.number().optional(),
+  radiusKm: z.number().optional(),
+  nearestTo: z.object(coordinate).optional(),
+  sort: z.enum(SEARCH_SORT_KEYS),
+});
+export type Interpretation = z.infer<typeof interpretationSchema>;
+
+export const searchResponseSchema = listResponseSchema.extend({
+  interpretation: interpretationSchema,
+  unparsedTerms: z.array(z.string()),
 });

@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 
 import type {
   ListResult,
+  RatingStats,
   RestaurantRecord,
   RestaurantRepository,
   Vocabulary,
@@ -32,6 +33,9 @@ export function createFakeRepository(
     ),
     list: vi.fn<RestaurantRepository['list']>(() => Promise.resolve(listResult)),
     vocabulary: vi.fn<RestaurantRepository['vocabulary']>(() => Promise.resolve(vocabulary)),
+    ratingStats: vi.fn<RestaurantRepository['ratingStats']>(() =>
+      Promise.resolve<RatingStats>({ meanRating: 3.4 }),
+    ),
   } satisfies RestaurantRepository;
 
   return {

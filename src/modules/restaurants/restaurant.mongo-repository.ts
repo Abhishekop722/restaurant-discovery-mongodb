@@ -4,6 +4,7 @@ import { restaurantsCollection } from '../../infra/mongo/collections.js';
 import { ConflictError } from '../../shared/errors.js';
 
 import {
+  buildBestPipeline,
   buildGeoPipeline,
   buildMatch,
   buildSort,
@@ -13,6 +14,7 @@ import type {
   ListCriteria,
   ListResult,
   ListRow,
+  RatingStats,
   RestaurantRecord,
   RestaurantRepository,
   Vocabulary,
@@ -30,6 +32,7 @@ interface ListDoc {
   rating: { average?: number; votes: number };
   pricing: { averageCostForTwo?: number; currency: string };
   distanceMeters?: number;
+  score?: number;
 }
 
 function toRecord({ _id, ...rest }: WithId<StoredRestaurant>): RestaurantRecord {
@@ -49,6 +52,7 @@ function toRow(doc: ListDoc): ListRow {
     averageCostForTwo: doc.pricing.averageCostForTwo,
     currency: doc.pricing.currency,
     distanceMeters: doc.distanceMeters,
+    score: doc.score,
   };
 }
 
@@ -90,18 +94,26 @@ export class MongoRestaurantRepository implements RestaurantRepository {
   async list(criteria: ListCriteria): Promise<ListResult> {
     // fetch one extra row to learn whether another page exists, without a count query
     const fetchLimit = criteria.limit + 1;
-    const docs = criteria.near
-      ? await this.listNear(criteria, criteria.near, fetchLimit)
-      : await this.listPlain(criteria, fetchLimit);
+    const docs = await this.fetchPage(criteria, fetchLimit);
     return {
       items: docs.slice(0, criteria.limit).map(toRow),
       hasMore: docs.length > criteria.limit,
     };
   }
 
+  private fetchPage(c: ListCriteria, fetchLimit: number): Promise<ListDoc[]> {
+    if (c.near) return this.listNear(c, c.near, fetchLimit);
+    if (c.sort === 'best') {
+      return this.collection
+        .aggregate<ListDoc>(buildBestPipeline(c, fetchLimit), { maxTimeMS: this.maxTimeMS })
+        .toArray();
+    }
+    return this.listPlain(c, fetchLimit);
+  }
+
   private listPlain(c: ListCriteria, fetchLimit: number): Promise<ListDoc[]> {
-    // `sort=distance` without a point is rejected at validation, so this narrowing is safe
-    const sort = c.sort === 'distance' ? '-rating' : c.sort;
+    // 'distance' needs a point and 'best' has its own pipeline; both are routed before this
+    const sort = c.sort === 'distance' || c.sort === 'best' ? '-rating' : c.sort;
     return this.collection
       .find<ListDoc>(buildMatch(c), {
         projection: LIST_PROJECTION,
@@ -130,5 +142,19 @@ export class MongoRestaurantRepository implements RestaurantRepository {
       this.collection.distinct('cuisines', { tenantId }, { maxTimeMS: this.maxTimeMS }),
     ]);
     return { cities: (cities as string[]).sort(), cuisines: cuisines.sort() };
+  }
+
+  /** Mean rating of rated restaurants: the prior for the weighted score. */
+  async ratingStats(tenantId: string): Promise<RatingStats> {
+    const [row] = await this.collection
+      .aggregate<{ mean: number }>(
+        [
+          { $match: { tenantId, 'rating.average': { $gt: 0 } } },
+          { $group: { _id: null, mean: { $avg: '$rating.average' } } },
+        ],
+        { maxTimeMS: this.maxTimeMS },
+      )
+      .toArray();
+    return { meanRating: row?.mean ?? 0 };
   }
 }

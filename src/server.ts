@@ -13,6 +13,7 @@ const mongo = await connectMongo(config);
 const restaurants = new RestaurantService(
   new MongoRestaurantRepository(mongo.db, config.QUERY_TIMEOUT_MS),
   config.TENANT_ID,
+  { defaultCurrency: config.DEFAULT_CURRENCY, rankingMinVotes: config.RANKING_MIN_VOTES },
 );
 const app = buildApp(config, { isReady: mongo.ping, restaurants });
 

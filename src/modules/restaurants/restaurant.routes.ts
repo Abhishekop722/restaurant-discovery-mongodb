@@ -7,6 +7,8 @@ import {
   listQuerySchema,
   listResponseSchema,
   restaurantResponseSchema,
+  searchQuerySchema,
+  searchResponseSchema,
 } from './restaurant.schema.js';
 import type { RestaurantService } from './restaurant.service.js';
 
@@ -24,6 +26,20 @@ export const restaurantRoutes: FastifyPluginCallbackZod<{ service: RestaurantSer
         .code(201)
         .header('Location', `/v1/restaurants/${record.id}`)
         .send(toRestaurantResponse(record));
+    },
+  );
+
+  app.get(
+    '/restaurants/search',
+    { schema: { querystring: searchQuerySchema, response: { 200: searchResponseSchema } } },
+    async (request) => {
+      const { items, hasMore, interpretation, unparsedTerms } = await service.search(request.query);
+      return {
+        interpretation,
+        unparsedTerms,
+        data: items.map(toListItem),
+        page: { limit: request.query.limit, offset: request.query.offset, hasMore },
+      };
     },
   );
 
