@@ -24,7 +24,7 @@ export default tseslint.config(
           paths: [
             {
               name: 'mongodb',
-              message: 'Only *.mongo-repository.ts and src/infra may import the mongodb driver.',
+              message: 'Only *.mongo-*.ts files and src/infra may import the mongodb driver.',
             },
           ],
         },
@@ -53,7 +53,7 @@ export default tseslint.config(
           paths: [{ name: 'mongodb', message: 'Routes must not touch the database.' }],
           patterns: [
             {
-              group: ['**/*.repository.js', '**/*.mongo-repository.js', '**/infra/**'],
+              group: ['**/*.repository.js', '**/*.mongo-*.js', '**/infra/**'],
               message: 'Routes call services only.',
             },
           ],
@@ -73,7 +73,7 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ['**/*.routes.js', '**/*.mongo-repository.js', '**/infra/**'],
+              group: ['**/*.routes.js', '**/*.mongo-*.js', '**/infra/**'],
               message: 'Services depend on the repository interface only.',
             },
           ],
@@ -83,7 +83,7 @@ export default tseslint.config(
   },
   {
     // the only places allowed to import the mongodb driver
-    files: ['src/infra/**', 'src/**/*.mongo-repository.ts', 'scripts/**', 'test/**'],
+    files: ['src/infra/**', 'src/**/*.mongo-*.ts', 'scripts/**', 'test/**'],
     rules: { 'no-restricted-imports': 'off' },
   },
   {

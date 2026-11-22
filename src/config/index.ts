@@ -6,6 +6,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   MONGODB_URI: z.string().min(1).default('mongodb://localhost:27017/?replicaSet=rs0'),
   MONGODB_DB: z.string().min(1).default('biteexpress'),
+  /** Server-side limit per MongoDB query; slow queries fail fast instead of piling up at peak. */
+  QUERY_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
   /** Business this deployment serves; every document and index is scoped by it. */
   TENANT_ID: z.string().min(1).default('biteexpress'),
   /** Load the dataset on startup when the collection is empty. */

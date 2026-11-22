@@ -5,10 +5,16 @@ import { restaurantsCollection } from './infra/mongo/collections.js';
 import { ensureIndexes } from './infra/mongo/indexes.js';
 import { resolveSeedFile } from './infra/seed/resolve-file.js';
 import { seedFromFile } from './infra/seed/seed.js';
+import { MongoRestaurantRepository } from './modules/restaurants/restaurant.mongo-repository.js';
+import { RestaurantService } from './modules/restaurants/restaurant.service.js';
 
 const config = loadConfig();
 const mongo = await connectMongo(config);
-const app = buildApp(config, { isReady: mongo.ping });
+const restaurants = new RestaurantService(
+  new MongoRestaurantRepository(mongo.db, config.QUERY_TIMEOUT_MS),
+  config.TENANT_ID,
+);
+const app = buildApp(config, { isReady: mongo.ping, restaurants });
 
 await ensureIndexes(mongo.db);
 if (
