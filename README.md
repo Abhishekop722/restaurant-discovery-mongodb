@@ -2,7 +2,25 @@
 
 Restaurant discovery API for BiteExpress, backed by MongoDB. Built as the MVP for the FDE take-home.
 
-> Status: tooling, Docker, seeding, create/get/list and natural-language search done.
+All four endpoints from the brief are implemented, tested (unit, integration against a real MongoDB,
+and a Docker smoke test in CI) and documented. Interactive OpenAPI docs are served at `/docs`.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  C[Client / API gateway] --> R[Fastify routes<br/>Zod validation, OpenAPI]
+  R --> S[Restaurant service<br/>filters, NL parser, ranking]
+  S --> P[(Repository port)]
+  P --> M[Mongo adapter<br/>queries, pipelines]
+  M --> DB[(MongoDB<br/>restaurants + indexes)]
+  SEED[Seed CLI / seed-on-start] --> DB
+```
+
+A stateless modular monolith: one container, no local state, so it scales horizontally behind a
+load balancer. The service layer never sees HTTP or the MongoDB driver; the database sits behind a
+repository interface, which is what keeps the on-prem/other-cloud migration a configuration change
+(`MONGODB_URI`) rather than a rewrite. Decisions are recorded in [`docs/adr/`](docs/adr).
 
 ## Run with Docker
 
@@ -104,6 +122,52 @@ The formula is computed in MongoDB and checked against a plain TypeScript implem
 
 Lat/lng become a GeoJSON `Point` as `[longitude, latitude]` for the `2dsphere` index.
 
+## Design decisions and trade-offs
+
+| Decision                            | Why                                                               | Cost                                                     |
+| ----------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
+| Modular monolith, not microservices | One team, one small domain; fewer moving parts to run and debug   | Split later along module boundaries if load demands it   |
+| Single `restaurants` collection     | Reads are always whole-restaurant; no joins needed                | Reviews/menus would need their own collections           |
+| Compound indexes led by `tenantId`  | Multi-tenant from day one; every query is index-served            | Slightly larger indexes                                  |
+| Rule-based NL parser, not an LLM    | Deterministic, free, fast, testable; interpretation is echoed     | Narrower phrasing coverage; LLM parser can slot in later |
+| Bayesian weighted "best" score      | Stops 5.0-from-3-votes beating 4.5-from-300                       | Computed in memory over the filtered set                 |
+| Native driver, no ODM               | Aggregation and geo pipelines are first-class; fewer abstractions | Hand-written queries (kept in one file, unit-tested)     |
+| In-memory rate limiting             | No extra infrastructure for the MVP                               | Per instance; use a shared store or the gateway at scale |
+
+## Multi-tenant, multi-country, peak hours, migration
+
+- **Multi-tenant / multi-country:** every document carries `tenantId`, `address.countryCode` and a
+  currency derived from the country; every index starts with `tenantId`. Adding a country is data,
+  not code. Today the tenant comes from `TENANT_ID`; with an auth layer it would come from the token.
+- **Peak hours:** stateless instances scale horizontally; queries are index-backed (query plans are
+  asserted in the integration tests), bounded by `maxTimeMS`, paginated with a hard cap, and the
+  vocabulary and rating statistics are cached. Reads can be moved to secondary replicas with a read
+  preference, and the geo and filter queries shard naturally on `tenantId` plus location/city.
+- **On-prem or another cloud:** the app only needs a MongoDB connection string and env vars; the
+  image is a plain non-root container. Nothing is tied to Atlas or a cloud vendor.
+- **Behind a gateway:** set `TRUST_PROXY` so rate limiting sees client IPs, and prefer gateway-level
+  limits for multi-instance deployments.
+
+## Testing
+
+- **Unit (`pnpm test:unit`):** parser, ranking maths, query builders, cleaning, routes (with an
+  in-memory fake repository), config, OpenAPI.
+- **Integration (`pnpm test:integration`):** real MongoDB via Testcontainers (needs Docker): seed,
+  index reconciliation, filters, paging, geo ordering and distance, query plans (`IXSCAN`,
+  `GEO_NEAR_2DSPHERE`), search end to end.
+- **Smoke (`pnpm test:e2e`):** run against the built Docker image in CI.
+- **Coverage:** `pnpm test:coverage` enforces thresholds. **Architecture:** `pnpm deps:check`
+  (dependency-cruiser) and `pnpm knip` (unused code) run in CI too.
+
+## Known limitations and next steps
+
+- No authentication; a gateway or JWT plugin is expected in front.
+- Dish search matches names only, since the dataset has no dishes (see above).
+- Name search is a regex (bounded by other filters); Atlas Search or a text index per tenant would
+  be the upgrade for fuzzy matching at scale.
+- No update/delete endpoints (not in the brief).
+- Not set up in this repo: branch protection rules, secret scanning (e.g. gitleaks) and a devcontainer.
+
 ## Quick start (without Docker)
 
 ```bash
@@ -115,13 +179,18 @@ pnpm dev           # http://localhost:3000/health/live
 
 ## Commands
 
-| Command                     | Purpose                                           |
-| --------------------------- | ------------------------------------------------- |
-| `pnpm check`                | format check, lint, typecheck, tests (same as CI) |
-| `pnpm lint` / `lint:fix`    | ESLint (type-aware, strict)                       |
-| `pnpm format`               | Prettier                                          |
-| `pnpm test` / `test:unit`   | Vitest                                            |
-| `pnpm build` / `pnpm start` | Compile to `dist/` and run                        |
+| Command                     | Purpose                                                    |
+| --------------------------- | ---------------------------------------------------------- |
+| `pnpm check`                | format, lint, architecture, unused code, types, unit tests |
+| `pnpm lint` / `lint:fix`    | ESLint (type-aware, strict)                                |
+| `pnpm format`               | Prettier                                                   |
+| `pnpm test:unit`            | Fast unit tests                                            |
+| `pnpm test:integration`     | Real MongoDB via Testcontainers (needs Docker)             |
+| `pnpm test:coverage`        | All tests with coverage thresholds                         |
+| `pnpm test:e2e`             | Smoke test against a running instance                      |
+| `pnpm deps:check` / `knip`  | Layering rules / unused exports and dependencies           |
+| `pnpm seed`                 | Load the CSV (idempotent)                                  |
+| `pnpm build` / `pnpm start` | Compile to `dist/` and run                                 |
 
 ## Conventions (enforced by tooling, not by memory)
 
@@ -129,12 +198,14 @@ pnpm dev           # http://localhost:3000/health/live
   Allowed scopes: restaurants, search, seed, infra, docker, config, deps, ci, tooling, docs.
 - **Hooks (Husky):** `pre-commit` runs lint-staged (ESLint + Prettier on staged files),
   `commit-msg` runs commitlint, `pre-push` runs typecheck and unit tests.
-- **CI is the real gate:** GitHub Actions repeats format, lint, typecheck, test and build.
+- **CI is the real gate:** GitHub Actions repeats format, lint, architecture, typecheck, tests with
+  coverage thresholds, build, and a Docker smoke test. PR titles are checked too.
 - **Layering:** `routes -> service -> repository (interface)`. Only `*.mongo-repository.ts`,
   `src/infra/` (and scripts/tests) may import `mongodb`; `process.env` is read only in `src/config/`.
-  Violations fail ESLint.
+  Violations fail ESLint and dependency-cruiser. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Tools and resources used
 
-- Claude (Anthropic) was used as a coding assistant for planning and scaffolding. All code is
-  reviewed and owned by the author.
+- Claude (Anthropic) was used as a coding assistant for planning, scaffolding, implementation and
+  documentation, driven step by step by the author. All code is reviewed and owned by the author.
+- Dataset: Zomato Restaurants (Kaggle). Stack: Fastify, Zod, MongoDB driver, Vitest, Testcontainers.
