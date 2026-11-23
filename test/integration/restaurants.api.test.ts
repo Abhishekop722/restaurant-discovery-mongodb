@@ -1,12 +1,8 @@
-import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
-
 import type { FastifyInstance } from 'fastify';
 import type { IndexDescriptionInfo } from 'mongodb';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { buildApp } from '../../src/app.js';
-import { connectMongo, type Mongo } from '../../src/infra/mongo/client.js';
+import type { Mongo } from '../../src/infra/mongo/client.js';
 import { restaurantsCollection } from '../../src/infra/mongo/collections.js';
 import { ensureIndexes, RESTAURANT_INDEXES } from '../../src/infra/mongo/indexes.js';
 import { loadCsvRows } from '../../src/infra/seed/load-csv.js';
@@ -16,11 +12,9 @@ import {
   buildMatch,
   buildSort,
 } from '../../src/modules/restaurants/restaurant.mongo-query.js';
-import { MongoRestaurantRepository } from '../../src/modules/restaurants/restaurant.mongo-repository.js';
-import { RestaurantService } from '../../src/modules/restaurants/restaurant.service.js';
+import { SAMPLE_CSV, startIntegrationApp } from '../helpers/integration-app.js';
 
 const TENANT = 'test-tenant';
-const SAMPLE = resolve('data/sample.csv');
 
 interface Item {
   id: string;
@@ -63,16 +57,11 @@ const fixture = (name: string, latitude: number, longitude: number) => ({
   pricing: { averageCostForTwo: 500, priceRange: 2 },
 });
 
-beforeAll(async () => {
-  mongo = await connectMongo({
-    MONGODB_URI: inject('mongoUri'),
-    MONGODB_DB: `it_${randomUUID().slice(0, 8)}`,
-  });
-  await ensureIndexes(mongo.db);
-  await seedFromFile(mongo.db, SAMPLE, TENANT);
+let stop: () => Promise<void>;
 
-  const restaurants = new RestaurantService(new MongoRestaurantRepository(mongo.db, 5000), TENANT);
-  app = buildApp({ LOG_LEVEL: 'silent' }, { isReady: mongo.ping, restaurants });
+beforeAll(async () => {
+  const started = await startIntegrationApp(TENANT);
+  ({ app, mongo, stop } = started);
 
   // three restaurants due north of (10, 20): ~0 km, ~1.11 km and ~5.57 km away (MongoDB uses a 6378.1 km Earth radius)
   for (const [name, lat] of [
@@ -90,15 +79,13 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await mongo.db.dropDatabase();
-  await app.close();
-  await mongo.close();
+  await stop();
 });
 
 describe('seed and indexes', () => {
   it('seeds every sample row and is idempotent', async () => {
-    const rows = await loadCsvRows(SAMPLE);
-    const again = await seedFromFile(mongo.db, SAMPLE, TENANT);
+    const rows = await loadCsvRows(SAMPLE_CSV);
+    const again = await seedFromFile(mongo.db, SAMPLE_CSV, TENANT);
     expect(again).toMatchObject({
       read: rows.length,
       rejected: 0,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** GeoJSON point, always [longitude, latitude] (the order MongoDB expects). */
-export const pointSchema = z.object({
+const pointSchema = z.object({
   type: z.literal('Point'),
   coordinates: z.tuple([z.number().min(-180).max(180), z.number().min(-90).max(90)]),
 });
@@ -86,19 +86,11 @@ export type CreateRestaurantInput = z.infer<typeof createRestaurantSchema>;
 
 export const idParamsSchema = z.strictObject({ id: z.string().regex(/^[0-9a-f]{24}$/i) });
 
-export const SORT_KEYS = [
-  'rating',
-  '-rating',
-  'name',
-  '-name',
-  'cost',
-  '-cost',
-  'distance',
-] as const;
+const SORT_KEYS = ['rating', '-rating', 'name', '-name', 'cost', '-cost', 'distance'] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 
 /** `best` is the weighted score (ratings adjusted for vote count); only the search endpoint offers it. */
-export const SEARCH_SORT_KEYS = [...SORT_KEYS, 'best'] as const;
+const SEARCH_SORT_KEYS = [...SORT_KEYS, 'best'] as const;
 export type SearchSortKey = (typeof SEARCH_SORT_KEYS)[number];
 
 /** Accepts `cuisine=a&cuisine=b` and `cuisine=a,b`. */
@@ -127,7 +119,7 @@ const listFields = {
 };
 
 /** Cross-field rules shared by the list and search endpoints. */
-export function refineGeo(
+function refineGeo(
   q: {
     lat?: number | undefined;
     lng?: number | undefined;
@@ -156,7 +148,6 @@ export function refineGeo(
 
 export const listQuerySchema = z.strictObject(listFields).superRefine(refineGeo);
 export type ListQuery = z.infer<typeof listQuerySchema>;
-export { listFields };
 
 export const restaurantResponseSchema = z.object({
   id: z.string(),
@@ -226,7 +217,7 @@ export const searchQuerySchema = z
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
 /** How the query was understood, echoed so users and tests can see and correct it. */
-export const interpretationSchema = z.object({
+const interpretationSchema = z.object({
   city: z.string().optional(),
   cuisines: z.array(z.string()).optional(),
   dish: z.array(z.string()).optional(),

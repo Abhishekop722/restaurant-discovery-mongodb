@@ -31,7 +31,10 @@ export async function startIntegrationApp(tenantId: string): Promise<Integration
     new MongoRestaurantRepository(mongo.db, 5000),
     tenantId,
   );
-  const app = buildApp({ LOG_LEVEL: 'silent' }, { isReady: mongo.ping, restaurants });
+  const app = buildApp(
+    { LOG_LEVEL: 'silent', RATE_LIMIT_MAX: 10_000, TRUST_PROXY: false },
+    { isReady: mongo.ping, restaurants },
+  );
   return {
     app,
     mongo,

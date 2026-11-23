@@ -6,6 +6,9 @@ export default defineConfig({
       provider: 'v8',
       include: ['src/**'],
       exclude: ['src/server.ts', 'src/infra/seed/cli.ts'],
+      reporter: ['text', 'json-summary'],
+      // measured across unit + integration; raise as the code grows, never lower to get green
+      thresholds: { lines: 85, statements: 85, functions: 85, branches: 80 },
     },
     projects: [
       {

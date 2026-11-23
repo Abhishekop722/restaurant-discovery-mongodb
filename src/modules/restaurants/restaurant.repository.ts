@@ -18,7 +18,7 @@ export interface RankingPriors {
 }
 
 /** A dish: matched by name, or by a cuisine that effectively is the dish. */
-export interface DishCriteria {
+interface DishCriteria {
   names: string[];
   cuisines: string[];
 }

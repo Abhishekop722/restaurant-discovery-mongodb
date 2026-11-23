@@ -12,6 +12,10 @@ const envSchema = z.object({
   DEFAULT_CURRENCY: z.string().length(3).toUpperCase().default('INR'),
   /** Votes needed before a rating is trusted by the weighted "best" score (dataset median is ~60). */
   RANKING_MIN_VOTES: z.coerce.number().int().min(1).default(100),
+  /** Requests per minute per client IP (in-memory, per instance; a shared store is the next step). */
+  RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(300),
+  /** Set true behind a gateway/load balancer so rate limiting and logs see the real client IP. */
+  TRUST_PROXY: z.stringbool().default(false),
   /** Business this deployment serves; every document and index is scoped by it. */
   TENANT_ID: z.string().min(1).default('biteexpress'),
   /** Load the dataset on startup when the collection is empty. */

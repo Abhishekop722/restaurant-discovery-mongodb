@@ -5,7 +5,7 @@ import unicorn from 'eslint-plugin-unicorn';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules', 'data'] },
+  { ignores: ['dist', 'coverage', 'node_modules', 'data', '.dependency-cruiser.cjs'] },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   ...tseslint.configs.stylisticTypeChecked,
@@ -98,7 +98,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['scripts/**', 'src/server.ts', 'src/infra/seed/cli.ts'],
+    files: ['scripts/**', 'src/server.ts', 'src/infra/seed/cli.ts', 'test/e2e/**'],
     rules: { 'no-console': 'off' },
   },
   {

@@ -1,0 +1,31 @@
+name: pr-title
+
+# Squash merges use the PR title as the commit message, so it must follow the same
+# Conventional Commits format that commitlint enforces locally.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint-title:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scopes: |
+            restaurants
+            search
+            seed
+            infra
+            docker
+            config
+            deps
+            ci
+            tooling
+            docs
+          requireScope: false
