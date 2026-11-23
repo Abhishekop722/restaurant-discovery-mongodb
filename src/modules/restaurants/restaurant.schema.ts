@@ -39,6 +39,8 @@ export const restaurantDocSchema = z.object({
     text: z.string(),
     votes: z.number().int().min(0),
   }),
+  /** Set when the create carried an Idempotency-Key; lets a retry return the original. */
+  idempotency: z.object({ key: z.string(), fingerprint: z.string() }).optional(),
   schemaVersion: z.literal(1),
 });
 
@@ -56,8 +58,18 @@ const coordinate = {
   longitude: z.number().min(-180).max(180),
 };
 
+/** Optional header that makes a create safe to retry. */
+export const createHeadersSchema = z.object({
+  'idempotency-key': z
+    .string()
+    .min(1)
+    .max(255)
+    .regex(/^[\x21-\x7e]+$/, 'printable ASCII without spaces')
+    .optional(),
+});
+
 export const createRestaurantSchema = z.strictObject({
-  /** Optional source-system id; makes the create idempotent-by-key (409 on duplicate). */
+  /** Optional source-system id; a duplicate returns 409. */
   externalId: z.number().int().optional(),
   name: z.string().trim().min(1).max(200),
   address: z.strictObject({

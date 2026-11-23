@@ -1,6 +1,7 @@
 import { MongoServerError, ObjectId, type Collection, type Db, type WithId } from 'mongodb';
 
 import { restaurantsCollection } from '../../infra/mongo/collections.js';
+import { IDEMPOTENCY_INDEX_NAME } from '../../infra/mongo/indexes.js';
 import { ConflictError } from '../../shared/errors.js';
 
 import {
@@ -11,6 +12,7 @@ import {
   LIST_PROJECTION,
 } from './restaurant.mongo-query.js';
 import type {
+  CreateResult,
   ListCriteria,
   ListResult,
   ListRow,
@@ -67,20 +69,38 @@ export class MongoRestaurantRepository implements RestaurantRepository {
     this.collection = restaurantsCollection(db);
   }
 
-  async create(doc: RestaurantDoc): Promise<RestaurantRecord> {
+  async create(doc: RestaurantDoc): Promise<CreateResult> {
     const now = new Date();
     const stored: StoredRestaurant = { ...doc, createdAt: now, updatedAt: now };
     try {
-      const { insertedId } = await this.collection.insertOne(stored);
-      return { ...stored, id: insertedId.toHexString() };
+      const { insertedId } = await this.collection.insertOne(stored, {
+        timeoutMS: this.maxTimeMS,
+      });
+      return { record: { ...stored, id: insertedId.toHexString() }, replayed: false };
     } catch (error) {
-      if (error instanceof MongoServerError && error.code === DUPLICATE_KEY) {
-        throw new ConflictError(
-          `restaurant with externalId ${String(doc.externalId)} already exists`,
-        );
+      if (!(error instanceof MongoServerError) || error.code !== DUPLICATE_KEY) throw error;
+      if (doc.idempotency && error.message.includes(IDEMPOTENCY_INDEX_NAME)) {
+        return this.replay(doc.tenantId, doc.idempotency);
       }
-      throw error;
+      throw new ConflictError(
+        `restaurant with externalId ${String(doc.externalId)} already exists`,
+      );
     }
+  }
+
+  /** A create with this Idempotency-Key already happened: return it, unless the body differs. */
+  private async replay(
+    tenantId: string,
+    idempotency: NonNullable<RestaurantDoc['idempotency']>,
+  ): Promise<CreateResult> {
+    const existing = await this.collection.findOne(
+      { tenantId, 'idempotency.key': idempotency.key },
+      { maxTimeMS: this.maxTimeMS },
+    );
+    if (existing?.idempotency?.fingerprint !== idempotency.fingerprint) {
+      throw new ConflictError('Idempotency-Key was already used with a different request body');
+    }
+    return { record: toRecord(existing), replayed: true };
   }
 
   async findById(tenantId: string, id: string): Promise<RestaurantRecord | null> {

@@ -7,6 +7,8 @@ import { restaurantsCollection } from './collections.js';
  * cluster can serve many businesses and later be zone-sharded by {tenantId, countryCode}.
  * Rating sorts end in _id (a unique tiebreaker) so deterministic pagination is index-served.
  */
+export const IDEMPOTENCY_INDEX_NAME = 'tenant_idempotencyKey_unique';
+
 export const RESTAURANT_INDEXES: IndexDescription[] = [
   // nearest / within-radius queries ($geoNear); documents without a location are simply not indexed
   { key: { location: '2dsphere' }, name: 'location_2dsphere' },
@@ -16,6 +18,13 @@ export const RESTAURANT_INDEXES: IndexDescription[] = [
     name: 'tenant_externalId_unique',
     unique: true,
     partialFilterExpression: { externalId: { $exists: true } },
+  },
+  // retried creates (Idempotency-Key header); partial so ordinary documents are not indexed
+  {
+    key: { tenantId: 1, 'idempotency.key': 1 },
+    name: IDEMPOTENCY_INDEX_NAME,
+    unique: true,
+    partialFilterExpression: { 'idempotency.key': { $exists: true } },
   },
   // best-rated overall
   {

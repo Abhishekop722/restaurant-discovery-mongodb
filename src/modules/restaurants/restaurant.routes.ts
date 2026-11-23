@@ -2,6 +2,7 @@ import type { FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 
 import { toListItem, toRestaurantResponse } from './restaurant.mapper.js';
 import {
+  createHeadersSchema,
   createRestaurantSchema,
   errorResponseSchema,
   idParamsSchema,
@@ -19,8 +20,16 @@ const tags = ['restaurants'];
 const createSchema = {
   tags,
   summary: 'Create a restaurant',
+  description:
+    'Send an Idempotency-Key header to make retries safe: repeating the same request with the same key returns the original restaurant (200) instead of creating another. The same key with a different body returns 409.',
+  headers: createHeadersSchema,
   body: createRestaurantSchema,
-  response: { 201: restaurantResponseSchema, 400: errorResponseSchema, 409: errorResponseSchema },
+  response: {
+    200: restaurantResponseSchema,
+    201: restaurantResponseSchema,
+    400: errorResponseSchema,
+    409: errorResponseSchema,
+  },
 };
 
 const getByIdSchema = {
@@ -54,9 +63,13 @@ export const restaurantRoutes: FastifyPluginCallbackZod<{ service: RestaurantSer
   done,
 ) => {
   app.post('/restaurants', { schema: createSchema }, async (request, reply) => {
-    const record = await service.create(request.body);
+    const { record, replayed } = await service.create(
+      request.body,
+      request.headers['idempotency-key'],
+    );
+    if (replayed) void reply.header('Idempotent-Replayed', 'true');
     return reply
-      .code(201)
+      .code(replayed ? 200 : 201)
       .header('Location', `/v1/restaurants/${record.id}`)
       .send(toRestaurantResponse(record));
   });

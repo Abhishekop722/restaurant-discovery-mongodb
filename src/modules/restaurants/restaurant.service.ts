@@ -1,8 +1,10 @@
 import { createCachedLoader } from '../../shared/cache.js';
 import { COUNTRIES } from '../../shared/countries.js';
 import { BadRequestError, NotFoundError } from '../../shared/errors.js';
+import { fingerprint } from '../../shared/fingerprint.js';
 
 import type {
+  CreateResult,
   ListCriteria,
   ListResult,
   RestaurantRecord,
@@ -136,7 +138,7 @@ export class RestaurantService {
     return this.vocabulary.get();
   }
 
-  async create(input: CreateRestaurantInput): Promise<RestaurantRecord> {
+  async create(input: CreateRestaurantInput, idempotencyKey?: string): Promise<CreateResult> {
     const country = COUNTRIES[input.address.countryCode];
     if (!country) {
       throw new BadRequestError(`unknown countryCode ${String(input.address.countryCode)}`);
@@ -172,12 +174,15 @@ export class RestaurantService {
       },
       flags: input.flags,
       rating: { text: 'Not rated', votes: 0 },
+      ...(idempotencyKey !== undefined && {
+        idempotency: { key: idempotencyKey, fingerprint: fingerprint(input) },
+      }),
       schemaVersion: 1,
     };
 
-    const record = await this.repository.create(doc);
-    this.vocabulary.invalidate(); // a new city/cuisine may have appeared
-    return record;
+    const result = await this.repository.create(doc);
+    if (!result.replayed) this.vocabulary.invalidate(); // a new city/cuisine may have appeared
+    return result;
   }
 
   async getById(id: string): Promise<RestaurantRecord> {

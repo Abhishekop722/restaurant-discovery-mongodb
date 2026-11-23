@@ -72,9 +72,19 @@ export interface RatingStats {
   meanRating: number;
 }
 
+export interface CreateResult {
+  record: RestaurantRecord;
+  /** True when an earlier request with the same Idempotency-Key already created it. */
+  replayed: boolean;
+}
+
 /** Port the service depends on; the MongoDB adapter implements it. */
 export interface RestaurantRepository {
-  create(doc: RestaurantDoc): Promise<RestaurantRecord>;
+  /**
+   * Inserts the restaurant. When `doc.idempotency` is set and a restaurant with the same key
+   * already exists, returns it with `replayed: true` (same fingerprint) or throws a conflict.
+   */
+  create(doc: RestaurantDoc): Promise<CreateResult>;
   findById(tenantId: string, id: string): Promise<RestaurantRecord | null>;
   list(criteria: ListCriteria): Promise<ListResult>;
   vocabulary(tenantId: string): Promise<Vocabulary>;

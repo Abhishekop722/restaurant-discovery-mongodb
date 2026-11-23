@@ -75,6 +75,64 @@ describe('POST /v1/restaurants', () => {
   });
 });
 
+describe('POST /v1/restaurants with an Idempotency-Key', () => {
+  const post = (app: ReturnType<typeof setup>['app'], key?: string, payload = validBody) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/restaurants',
+      payload,
+      ...(key && { headers: { 'idempotency-key': key } }),
+    });
+
+  it('returns the original restaurant on a retry instead of creating another', async () => {
+    const { app, repository } = setup();
+    const first = await post(app, 'order-1');
+    const retry = await post(app, 'order-1');
+    expect(first.statusCode).toBe(201);
+    expect(retry.statusCode).toBe(200);
+    expect(retry.headers['idempotent-replayed']).toBe('true');
+    expect(retry.json<{ id: string }>().id).toBe(first.json<{ id: string }>().id);
+    expect(retry.headers.location).toBe(first.headers.location);
+    expect(repository.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('treats the same body with reordered fields as the same request', async () => {
+    const { app } = setup();
+    await post(app, 'k');
+    const { name, ...rest } = validBody;
+    const reordered = { ...rest, name }; // same fields, different key order
+    expect((await post(app, 'k', reordered)).statusCode).toBe(200);
+  });
+
+  it('returns 409 when the key is reused with a different body', async () => {
+    const { app } = setup();
+    await post(app, 'k');
+    const res = await post(app, 'k', { ...validBody, name: 'Another place' });
+    expect(res.statusCode).toBe(409);
+    expect(errorOf(res).code).toBe('conflict');
+  });
+
+  it('keeps creating new restaurants when no key is sent, and different keys are independent', async () => {
+    const { app } = setup();
+    const a = await post(app);
+    const b = await post(app);
+    const c = await post(app, 'x');
+    const d = await post(app, 'y');
+    expect([a, b, c, d].map((r) => r.statusCode)).toEqual([201, 201, 201, 201]);
+  });
+
+  it('rejects a malformed key', async () => {
+    const { app } = setup();
+    expect((await post(app, 'has space')).statusCode).toBe(400);
+  });
+
+  it('never exposes the key or fingerprint in the response', async () => {
+    const { app } = setup();
+    const body = (await post(app, 'secret-ish')).json<Record<string, unknown>>();
+    expect(body).not.toHaveProperty('idempotency');
+  });
+});
+
 describe('GET /v1/restaurants/:id', () => {
   it('returns the stored restaurant', async () => {
     const { app } = setup();

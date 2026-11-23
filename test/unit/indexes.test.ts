@@ -16,8 +16,12 @@ describe('RESTAURANT_INDEXES', () => {
     for (const index of compound) expect(Object.keys(index.key)[0]).toBe('tenantId');
   });
 
-  it('makes the business-key index partial so API-created restaurants do not collide', () => {
-    const unique = RESTAURANT_INDEXES.find((i) => i.unique);
-    expect(unique?.partialFilterExpression).toEqual({ externalId: { $exists: true } });
+  it('makes the unique indexes partial so ordinary restaurants do not collide', () => {
+    const unique = RESTAURANT_INDEXES.filter((i) => i.unique);
+    expect(unique.map((i) => i.name).sort()).toEqual([
+      'tenant_externalId_unique',
+      'tenant_idempotencyKey_unique',
+    ]);
+    for (const index of unique) expect(index.partialFilterExpression).toBeDefined();
   });
 });

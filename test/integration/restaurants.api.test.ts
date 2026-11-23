@@ -158,6 +158,45 @@ describe('POST and GET by id', () => {
   });
 });
 
+describe('POST with an Idempotency-Key (real unique index)', () => {
+  const send = (key: string, payload: object = fixture('Keyed', 15, 25)) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/restaurants',
+      payload,
+      headers: { 'idempotency-key': key },
+    });
+
+  it('stores one document however often the same request is retried', async () => {
+    const before = await restaurantsCollection(mongo.db).countDocuments({ name: 'Keyed' });
+    const first = await send('integration-1');
+    const retry = await send('integration-1');
+    expect([first.statusCode, retry.statusCode]).toEqual([201, 200]);
+    expect(retry.json<{ id: string }>().id).toBe(first.json<{ id: string }>().id);
+    expect(await restaurantsCollection(mongo.db).countDocuments({ name: 'Keyed' })).toBe(
+      before + 1,
+    );
+  });
+
+  it('collapses concurrent retries into one document', async () => {
+    const results = await Promise.all(Array.from({ length: 8 }, () => send('integration-race')));
+    const ids = new Set(results.map((r) => r.json<{ id: string }>().id));
+    expect(ids.size).toBe(1);
+    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(1);
+  });
+
+  it('rejects the same key with a different body', async () => {
+    await send('integration-2');
+    const res = await send('integration-2', fixture('Different', 15, 25));
+    expect(res.statusCode).toBe(409);
+  });
+
+  it('does not store the key on the response', async () => {
+    const res = await send('integration-3');
+    expect(res.json()).not.toHaveProperty('idempotency');
+  });
+});
+
 describe('GET /v1/restaurants filters and sorting', () => {
   it('matches the city case-insensitively and via aliases', async () => {
     const lower = await list('city=gurgaon&limit=50');

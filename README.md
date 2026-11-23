@@ -44,6 +44,13 @@ Re-seed manually with `pnpm seed` (idempotent upsert on `tenantId + externalId`)
 | `GET /v1/restaurants/search`        | Natural-language query turned into the same filters           |
 | `GET /health/live`, `/health/ready` | Liveness and readiness (MongoDB ping)                         |
 
+`POST` is safe to retry: send an `Idempotency-Key` header (any unique string, up to 255 printable
+characters, chosen by the client per logical create). Repeating the request with the same key returns
+the original restaurant with `200` and `Idempotent-Replayed: true` instead of creating another;
+the same key with a different body returns `409`. Without the header every call creates a new
+restaurant; with an `externalId` a duplicate returns `409`. The key lives on the document behind a
+partial unique index, so concurrent retries collapse into one insert.
+
 List parameters: `name` (contains), `city`, `cuisine` (repeat or comma-separate, any-of), `minRating`,
 `maxCost` (+ `currency`), `lat` + `lng` (+ `radiusKm`), `sort`
 (`rating|-rating|name|-name|cost|-cost|distance`), `limit` (default 20, max 100), `offset` (max 5000).
@@ -173,8 +180,8 @@ retired, and per-region clusters for data-residency rules.
 - Dish search matches names only, since the dataset has no dishes (see above).
 - Name search is a regex (bounded by other filters); Atlas Search or a text index per tenant would
   be the upgrade for fuzzy matching at scale.
-- No update/delete endpoints (not in the brief). `POST` without an `externalId` has no duplicate
-  protection or idempotency key.
+- No update/delete endpoints (not in the brief). `POST` without an `externalId` or an
+  `Idempotency-Key` is not protected against duplicates, by design (see above).
 - No country filter on list/search yet.
 - Not set up in this repo: branch protection rules, secret scanning (e.g. gitleaks) and a devcontainer.
 
