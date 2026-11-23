@@ -6,8 +6,8 @@ Status: accepted
 
 - One `restaurants` collection, documents carrying `tenantId`, `externalId`, GeoJSON `location`
   (`[lng, lat]`), `cuisines[]`, `rating`, `pricing` and a country-derived currency.
-- Indexes: `2dsphere` on location; compound indexes led by `tenantId` for city/rating/cost listings;
-  a partial unique index on `(tenantId, externalId)`; a text index.
+- Indexes (no text index: name search is a bounded regex, since `$text` cannot combine with `$geoNear`): `2dsphere` on location; compound indexes led by `tenantId` for city/rating/cost listings;
+  a partial unique index on `(tenantId, externalId)`.
 - `ensureIndexes` runs at start and reconciles: it replaces drifted and drops undeclared indexes.
 - Missing data is omitted, never faked (no `0,0` coordinates, no `0` ratings).
 - Queries use `maxTimeMS`; pagination uses limit+1 for `hasMore` and ends every sort in `_id`.

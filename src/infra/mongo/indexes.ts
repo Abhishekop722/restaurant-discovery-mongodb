@@ -37,8 +37,6 @@ export const RESTAURANT_INDEXES: IndexDescription[] = [
     key: { tenantId: 1, 'address.city': 1, 'pricing.averageCostForTwo': 1 },
     name: 'tenant_city_cost',
   },
-  // baseline free-text name/cuisine search without Atlas Search
-  { key: { name: 'text', cuisines: 'text' }, name: 'name_cuisines_text' },
 ];
 
 const sameKey = (a: object, b: object): boolean =>

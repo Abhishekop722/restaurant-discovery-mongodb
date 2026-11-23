@@ -41,6 +41,7 @@ Re-seed manually with `pnpm seed` (idempotent upsert on `tenantId + externalId`)
 | `POST /v1/restaurants`              | Create; returns `201`, the entity and a `Location` header     |
 | `GET /v1/restaurants/{id}`          | Full details; `404` if missing, `400` if the id is malformed  |
 | `GET /v1/restaurants`               | Filter, sort and paginate; distance when `lat`/`lng` are sent |
+| `GET /v1/restaurants/search`        | Natural-language query turned into the same filters           |
 | `GET /health/live`, `/health/ready` | Liveness and readiness (MongoDB ping)                         |
 
 List parameters: `name` (contains), `city`, `cuisine` (repeat or comma-separate, any-of), `minRating`,
@@ -136,17 +137,24 @@ Lat/lng become a GeoJSON `Point` as `[longitude, latitude]` for the `2dsphere` i
 
 ## Multi-tenant, multi-country, peak hours, migration
 
-- **Multi-tenant / multi-country:** every document carries `tenantId`, `address.countryCode` and a
-  currency derived from the country; every index starts with `tenantId`. Adding a country is data,
-  not code. Today the tenant comes from `TENANT_ID`; with an auth layer it would come from the token.
-- **Peak hours:** stateless instances scale horizontally; queries are index-backed (query plans are
-  asserted in the integration tests), bounded by `maxTimeMS`, paginated with a hard cap, and the
-  vocabulary and rating statistics are cached. Reads can be moved to secondary replicas with a read
-  preference, and the geo and filter queries shard naturally on `tenantId` plus location/city.
-- **On-prem or another cloud:** the app only needs a MongoDB connection string and env vars; the
-  image is a plain non-root container. Nothing is tied to Atlas or a cloud vendor.
-- **Behind a gateway:** set `TRUST_PROXY` so rate limiting sees client IPs, and prefer gateway-level
-  limits for multi-instance deployments.
+What is built:
+
+- **Multi-tenant:** every document carries `tenantId` and every index starts with it, so one cluster
+  can hold many businesses. The tenant is currently fixed per deployment (`TENANT_ID`); taking it
+  from an auth token is the next step and touches only the route layer.
+- **Multi-country:** documents store `address.countryCode`, and currency is derived from it
+  (`src/shared/countries.ts`, a small table to extend). The list endpoint does not yet filter by country.
+- **Peak hours:** instances are stateless, so they scale horizontally. Queries are index-backed (query
+  plans are asserted in integration tests), bounded by `maxTimeMS`, paginated with hard caps
+  (`limit` 100, `offset` 5000, `radiusKm` 500), and vocabulary and rating statistics are cached.
+- **On-prem or another cloud:** the app needs only a MongoDB connection string and env vars; the image
+  is a plain non-root container with no vendor-specific services.
+- **Behind a gateway:** set `TRUST_PROXY` so rate limiting sees client IPs; use gateway-level limits
+  when running several instances.
+
+Designed for, not built: read preference for secondary reads, zone sharding on
+`{tenantId, countryCode}`, change-data-capture or dual writes while the relational monolith is
+retired, and per-region clusters for data-residency rules.
 
 ## Testing
 
@@ -165,7 +173,9 @@ Lat/lng become a GeoJSON `Point` as `[longitude, latitude]` for the `2dsphere` i
 - Dish search matches names only, since the dataset has no dishes (see above).
 - Name search is a regex (bounded by other filters); Atlas Search or a text index per tenant would
   be the upgrade for fuzzy matching at scale.
-- No update/delete endpoints (not in the brief).
+- No update/delete endpoints (not in the brief). `POST` without an `externalId` has no duplicate
+  protection or idempotency key.
+- No country filter on list/search yet.
 - Not set up in this repo: branch protection rules, secret scanning (e.g. gitleaks) and a devcontainer.
 
 ## Quick start (without Docker)
@@ -207,5 +217,7 @@ pnpm dev           # http://localhost:3000/health/live
 ## Tools and resources used
 
 - Claude (Anthropic) was used as a coding assistant for planning, scaffolding, implementation and
-  documentation, driven step by step by the author. All code is reviewed and owned by the author.
+  documentation, driven step by step by the author. Architecture choices (modular monolith, rule-based
+  search instead of an LLM, weighted ranking, tooling) were reviewed and decided by the author; all
+  code is reviewed and owned by the author, and an independent review pass checked it against the brief.
 - Dataset: Zomato Restaurants (Kaggle). Stack: Fastify, Zod, MongoDB driver, Vitest, Testcontainers.
