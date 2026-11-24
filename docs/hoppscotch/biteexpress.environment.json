@@ -1,19 +1,21 @@
-{
-  "v": 2,
-  "id": "biteexpress-local",
-  "name": "BiteExpress local",
-  "variables": [
-    {
-      "key": "baseUrl",
-      "initialValue": "http://localhost:3000",
-      "currentValue": "http://localhost:3000",
-      "secret": false
-    },
-    {
-      "key": "restaurantId",
-      "initialValue": "",
-      "currentValue": "",
-      "secret": false
-    }
-  ]
-}
+[
+  {
+    "v": 2,
+    "id": "biteexpress-local",
+    "name": "BiteExpress local",
+    "variables": [
+      {
+        "key": "baseUrl",
+        "initialValue": "http://localhost:3000",
+        "currentValue": "http://localhost:3000",
+        "secret": false
+      },
+      {
+        "key": "restaurantId",
+        "initialValue": "",
+        "currentValue": "",
+        "secret": false
+      }
+    ]
+  }
+]
