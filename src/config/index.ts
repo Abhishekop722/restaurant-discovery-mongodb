@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+/** An empty variable (e.g. `KEY=` or a compose default) means "not set". */
+const blankAsUnset = (value: unknown): unknown => (value === '' ? undefined : value);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -22,10 +25,10 @@ const envSchema = z.object({
   SEED_ON_START: z.stringbool().default(false),
   SEED_FILE: z.string().min(1).optional(),
   /** When set, natural-language search asks Groq to parse the text; otherwise the rules are used. */
-  GROQ_API_KEY: z.string().min(1).optional(),
-  GROQ_MODEL: z.string().min(1).default('llama-3.1-8b-instant'),
+  GROQ_API_KEY: z.preprocess(blankAsUnset, z.string().min(1).optional()),
+  GROQ_MODEL: z.preprocess(blankAsUnset, z.string().min(1).default('llama-3.1-8b-instant')),
   /** Give up on the model after this long and use the rule-based parser instead. */
-  GROQ_TIMEOUT_MS: z.coerce.number().int().min(100).default(2000),
+  GROQ_TIMEOUT_MS: z.preprocess(blankAsUnset, z.coerce.number().int().min(100).default(2000)),
 });
 
 export type Config = z.infer<typeof envSchema>;
