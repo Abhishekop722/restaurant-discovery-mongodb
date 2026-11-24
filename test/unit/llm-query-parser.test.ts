@@ -118,7 +118,7 @@ describe('LlmQueryParser caching and prompting', () => {
 });
 
 describe('createGroqClient', () => {
-  const options = { apiKey: 'k', model: 'llama-3.1-8b-instant', timeoutMs: 500 };
+  const options = { apiKey: 'k', model: 'openai/gpt-oss-20b', timeoutMs: 500 };
 
   it('posts a JSON-mode chat request and returns the message content', async () => {
     const fetchMock = vi.fn(() =>
@@ -132,7 +132,7 @@ describe('createGroqClient', () => {
     expect((init.headers as Record<string, string>).authorization).toBe('Bearer k');
     const body = JSON.parse(init.body as string) as Record<string, unknown>;
     expect(body).toMatchObject({
-      model: 'llama-3.1-8b-instant',
+      model: 'openai/gpt-oss-20b',
       temperature: 0,
       response_format: { type: 'json_object' },
     });

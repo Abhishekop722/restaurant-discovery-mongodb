@@ -14,7 +14,7 @@ describe('loadConfig', () => {
   it('treats blank Groq variables as unset, as docker compose passes them', () => {
     const config = loadConfig({ GROQ_API_KEY: '', GROQ_MODEL: '', GROQ_TIMEOUT_MS: '' });
     expect(config.GROQ_API_KEY).toBeUndefined();
-    expect(config.GROQ_MODEL).toBe('llama-3.1-8b-instant');
+    expect(config.GROQ_MODEL).toBe('openai/gpt-oss-20b');
     expect(config.GROQ_TIMEOUT_MS).toBe(2000);
   });
 
