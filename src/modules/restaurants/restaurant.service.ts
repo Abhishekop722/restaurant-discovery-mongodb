@@ -101,6 +101,7 @@ function describe({
     ...(parsed.maxPriceRange !== undefined && { maxPriceRange: parsed.maxPriceRange }),
     ...(radiusKm !== undefined && { radiusKm }),
     ...(near && { nearestTo: { latitude: near.lat, longitude: near.lng } }),
+    parsedBy: parsed.parsedBy,
     sort,
   };
 }

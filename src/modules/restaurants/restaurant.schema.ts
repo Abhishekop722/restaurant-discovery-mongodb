@@ -240,6 +240,8 @@ const interpretationSchema = z.object({
   maxPriceRange: z.number().optional(),
   radiusKm: z.number().optional(),
   nearestTo: z.object(coordinate).optional(),
+  /** 'llm' when the model parsed it, 'rules' when it fell back; absent when only rules are configured. */
+  parsedBy: z.enum(['llm', 'rules']).optional(),
   sort: z.enum(SEARCH_SORT_KEYS),
 });
 export type Interpretation = z.infer<typeof interpretationSchema>;

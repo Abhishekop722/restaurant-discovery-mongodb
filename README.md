@@ -105,6 +105,20 @@ C = mean rating of all rated restaurants, m = `RANKING_MIN_VOTES`, default 100; 
 is about 60 votes). Only rated restaurants take part, and the score is returned with each result.
 The formula is computed in MongoDB and checked against a plain TypeScript implementation in tests.
 
+**Optional: let an LLM do the parsing (Groq + Llama).** Set `GROQ_API_KEY` (and optionally
+`GROQ_MODEL`, default `llama-3.1-8b-instant`, and `GROQ_TIMEOUT_MS`, default 2000) and the search
+text is first sent to Groq, which returns JSON filters for phrasings the rules do not cover
+("somewhere cheap for biryani around Delhi"). The model never writes queries: its JSON is validated
+with Zod, city and cuisine values must exist in the stored vocabulary (anything else becomes a name
+search), numbers are range-checked, and unknown keys are ignored. On any failure (timeout, rate
+limit, bad JSON, no key) the rule-based parser answers instead, so search never depends on the
+model. `interpretation.parsedBy` says which one was used (`llm` or `rules`; absent when no key is
+set), and answers are cached per query text. Without a key nothing changes and no network call is made.
+
+```bash
+GROQ_API_KEY=... docker compose up --build
+```
+
 **Honest limits**
 
 - The dataset has cuisines, not dishes. "Vada pav" matches restaurants _named_ that (the data has
@@ -115,8 +129,9 @@ The formula is computed in MongoDB and checked against a plain TypeScript implem
   `$geoNear`. It is bounded by the other filters; Atlas Search would replace it.
 - The weighted sort runs in memory over the filtered set (fine at this scale; a precomputed
   score field would be the next step).
-- The parser sits behind a `QueryParser` interface, so an LLM-backed parser that fills the same
-  structure (validated, with this one as fallback) can be added without touching the rest.
+- The LLM parser is optional and its accuracy depends on the model chosen; the rule-based parser
+  stays the tested baseline. Search text is sent to Groq when a key is set, so avoid it where that
+  is not acceptable. Check the model name and free-tier limits in your Groq console.
 
 ## Data cleaning decisions
 

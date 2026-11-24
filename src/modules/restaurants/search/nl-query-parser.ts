@@ -25,6 +25,8 @@ export interface ParsedSearch {
   cheapest: boolean;
   /** Words nothing recognised; the service uses them as a name filter. */
   unparsedTerms: string[];
+  /** Which parser produced this; set by the LLM parser, which may fall back to the rules. */
+  parsedBy?: 'llm' | 'rules';
 }
 
 /** Tier 1 is rule based (below); an LLM-backed parser can implement this and fall back to it. */
@@ -211,12 +213,17 @@ const dishPattern = new RegExp(
   'u',
 );
 
-function extractDishes(text: Working, vocabulary: SearchVocabulary, out: ParsedSearch): void {
+/** Resolves dish words ("vadapav", "vada pav") to their table entry; unknown words are skipped. */
+export function dishFromTerms(
+  words: readonly string[],
+  vocabulary: SearchVocabulary,
+): ParsedSearch['dish'] {
   const dish: NonNullable<ParsedSearch['dish']> = { terms: [], names: [], cuisines: [] };
-  for (const m of text.takeAll(dishPattern)) {
+  for (const word of words) {
     // "vadapav" / "vada  pav" -> the table key "vada pav"
+    const squashed = word.toLowerCase().replace(/\s+/g, '');
     const term = Object.keys(DISH_SYNONYMS).find(
-      (candidate) => candidate.replace(/\s+/g, '') === (m[1] ?? '').replace(/\s+/g, ''),
+      (candidate) => candidate.replace(/\s+/g, '') === squashed,
     );
     const synonym = term && DISH_SYNONYMS[term];
     if (!term || !synonym) continue;
@@ -227,13 +234,20 @@ function extractDishes(text: Working, vocabulary: SearchVocabulary, out: ParsedS
       if (canonical) dish.cuisines.push(canonical);
     }
   }
-  if (dish.terms.length > 0) {
-    out.dish = {
-      terms: [...new Set(dish.terms)],
-      names: [...new Set(dish.names)],
-      cuisines: [...new Set(dish.cuisines)],
-    };
-  }
+  if (dish.terms.length === 0) return undefined;
+  return {
+    terms: [...new Set(dish.terms)],
+    names: [...new Set(dish.names)],
+    cuisines: [...new Set(dish.cuisines)],
+  };
+}
+
+function extractDishes(text: Working, vocabulary: SearchVocabulary, out: ParsedSearch): void {
+  const dish = dishFromTerms(
+    text.takeAll(dishPattern).map((m) => m[1] ?? ''),
+    vocabulary,
+  );
+  if (dish) out.dish = dish;
 }
 
 function leftovers(text: Working): string[] {
