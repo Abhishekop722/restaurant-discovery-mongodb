@@ -69,6 +69,8 @@ case-insensitive regexes); every sort ends in `_id` for stable pagination; `$geo
 when a point is given, and other sorts then run in memory over the radius-bounded set; errors share
 one envelope with a request id; indexes are reconciled with the declared set on every start.
 
+A ready-made [Hoppscotch collection](docs/hoppscotch) covers every endpoint, including error cases.
+
 ## Natural-language search
 
 `GET /v1/restaurants/search?q=...` turns free text into the same filters the list endpoint uses

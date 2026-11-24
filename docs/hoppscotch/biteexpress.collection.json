@@ -1,0 +1,876 @@
+{
+  "v": 2,
+  "name": "BiteExpress Restaurant Discovery",
+  "folders": [
+    {
+      "v": 2,
+      "name": "Health",
+      "folders": [],
+      "requests": [
+        {
+          "v": "10",
+          "name": "Liveness",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/health/live",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Readiness (MongoDB ping)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/health/ready",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": []
+    },
+    {
+      "v": 2,
+      "name": "Create and get",
+      "folders": [],
+      "requests": [
+        {
+          "v": "10",
+          "name": "Create restaurant (no key: new each time)",
+          "method": "POST",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "pw.test(\"status is 201 or 200\", () => { pw.expect([200, 201].includes(pw.response.status)).toBe(true); });\nif (pw.response.body && pw.response.body.id) { pw.env.set(\"restaurantId\", pw.response.body.id); }",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Hoppscotch Test Kitchen\",\n  \"address\": {\n    \"line\": \"Plot 12, Sector 29\",\n    \"locality\": \"Sector 29\",\n    \"city\": \"gurgaon\",\n    \"countryCode\": 1\n  },\n  \"location\": {\n    \"latitude\": 28.4595,\n    \"longitude\": 77.0266\n  },\n  \"cuisines\": [\n    \"south indian\",\n    \"street food\"\n  ],\n  \"pricing\": {\n    \"averageCostForTwo\": 600,\n    \"priceRange\": 2\n  }\n}"
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Create with Idempotency-Key (send twice: 201 then 200)",
+          "method": "POST",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [],
+          "headers": [
+            {
+              "key": "Idempotency-Key",
+              "value": "hoppscotch-demo-001",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "pw.test(\"status is 201 or 200\", () => { pw.expect([200, 201].includes(pw.response.status)).toBe(true); });\nif (pw.response.body && pw.response.body.id) { pw.env.set(\"restaurantId\", pw.response.body.id); }",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Hoppscotch Test Kitchen\",\n  \"address\": {\n    \"line\": \"Plot 12, Sector 29\",\n    \"locality\": \"Sector 29\",\n    \"city\": \"gurgaon\",\n    \"countryCode\": 1\n  },\n  \"location\": {\n    \"latitude\": 28.4595,\n    \"longitude\": 77.0266\n  },\n  \"cuisines\": [\n    \"south indian\",\n    \"street food\"\n  ],\n  \"pricing\": {\n    \"averageCostForTwo\": 600,\n    \"priceRange\": 2\n  }\n}"
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Idempotency-Key reused with different body (409)",
+          "method": "POST",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [],
+          "headers": [
+            {
+              "key": "Idempotency-Key",
+              "value": "hoppscotch-demo-001",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"A Different Place\",\n  \"address\": {\n    \"line\": \"Plot 12, Sector 29\",\n    \"locality\": \"Sector 29\",\n    \"city\": \"gurgaon\",\n    \"countryCode\": 1\n  },\n  \"location\": {\n    \"latitude\": 28.4595,\n    \"longitude\": 77.0266\n  },\n  \"cuisines\": [\n    \"south indian\",\n    \"street food\"\n  ],\n  \"pricing\": {\n    \"averageCostForTwo\": 600,\n    \"priceRange\": 2\n  }\n}"
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Create with externalId (second send: 409)",
+          "method": "POST",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"External Id Place\",\n  \"address\": {\n    \"line\": \"Plot 12, Sector 29\",\n    \"locality\": \"Sector 29\",\n    \"city\": \"gurgaon\",\n    \"countryCode\": 1\n  },\n  \"location\": {\n    \"latitude\": 28.4595,\n    \"longitude\": 77.0266\n  },\n  \"cuisines\": [\n    \"south indian\",\n    \"street food\"\n  ],\n  \"pricing\": {\n    \"averageCostForTwo\": 600,\n    \"priceRange\": 2\n  },\n  \"externalId\": 987654321\n}"
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Create: unknown countryCode (400)",
+          "method": "POST",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": "application/json",
+            "body": "{\n  \"name\": \"Hoppscotch Test Kitchen\",\n  \"address\": {\n    \"line\": \"Plot 12, Sector 29\",\n    \"locality\": \"Sector 29\",\n    \"city\": \"gurgaon\",\n    \"countryCode\": 999\n  },\n  \"location\": {\n    \"latitude\": 28.4595,\n    \"longitude\": 77.0266\n  },\n  \"cuisines\": [\n    \"south indian\",\n    \"street food\"\n  ],\n  \"pricing\": {\n    \"averageCostForTwo\": 600,\n    \"priceRange\": 2\n  }\n}"
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Get by id (uses restaurantId from the last create)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/<<restaurantId>>",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Get by id: well-formed but missing (404)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/ffffffffffffffffffffffff",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Get by id: malformed (400)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/not-an-id",
+          "params": [],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": []
+    },
+    {
+      "v": 2,
+      "name": "List, filter, sort, geo",
+      "folders": [],
+      "requests": [
+        {
+          "v": "10",
+          "name": "Best rated in Gurgaon",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "City alias (Gurugram = Gurgaon)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "Gurugram",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "5",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "South Indian in Gurgaon",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "cuisine",
+              "value": "south indian",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "5",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Rated 4.2+ and under Rs 500 for two",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "minRating",
+              "value": "4.2",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "maxCost",
+              "value": "500",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "currency",
+              "value": "INR",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Name contains 'cafe'",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "name",
+              "value": "cafe",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Cheapest first",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "sort",
+              "value": "cost",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Sorted by name",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "sort",
+              "value": "name",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Pagination: page 2",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "limit",
+              "value": "5",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "offset",
+              "value": "5",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Within 3 km of a point (nearest first)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "lat",
+              "value": "28.4595",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lng",
+              "value": "77.0266",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "radiusKm",
+              "value": "3",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Nearby, best rated first",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "lat",
+              "value": "28.4595",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lng",
+              "value": "77.0266",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "radiusKm",
+              "value": "5",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "sort",
+              "value": "-rating",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Unknown parameter (400)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants",
+          "params": [
+            {
+              "key": "bogus",
+              "value": "1",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": []
+    },
+    {
+      "v": 2,
+      "name": "Natural-language search",
+      "folders": [],
+      "requests": [
+        {
+          "v": "10",
+          "name": "Best restaurants in Gurgaon with South Indian food",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "Best restaurants in Gurgaon with South Indian Food",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Restaurants in Gurgaon under Rs. 1000 for two",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "Restaurants in Gurgaon under Rs. 1000 for two",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Nearest place that serves Vada Pav (needs lat/lng)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "Nearest place that serves Vada Pav",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lat",
+              "value": "28.4595",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lng",
+              "value": "77.0266",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Nearest without a location (400)",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "Nearest place that serves Vada Pav",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Cheap biryani rated above 4",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "cheap biryani rated above 4",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Within 2 km, top rated",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "top rated cafe within 2 km",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lat",
+              "value": "28.4595",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "lng",
+              "value": "77.0266",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        },
+        {
+          "v": "10",
+          "name": "Explicit parameter overrides the text",
+          "method": "GET",
+          "endpoint": "<<baseUrl>>/v1/restaurants/search",
+          "params": [
+            {
+              "key": "q",
+              "value": "best in delhi",
+              "active": true,
+              "description": ""
+            },
+            {
+              "key": "city",
+              "value": "gurgaon",
+              "active": true,
+              "description": ""
+            }
+          ],
+          "headers": [],
+          "preRequestScript": "",
+          "testScript": "",
+          "auth": {
+            "authType": "none",
+            "authActive": true
+          },
+          "body": {
+            "contentType": null,
+            "body": null
+          },
+          "requestVariables": []
+        }
+      ],
+      "auth": {
+        "authType": "inherit",
+        "authActive": true
+      },
+      "headers": []
+    }
+  ],
+  "requests": [],
+  "auth": {
+    "authType": "none",
+    "authActive": true
+  },
+  "headers": []
+}
