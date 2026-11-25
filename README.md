@@ -105,7 +105,7 @@ C = mean rating of all rated restaurants, m = `RANKING_MIN_VOTES`, default 100; 
 is about 60 votes). Only rated restaurants take part, and the score is returned with each result.
 The formula is computed in MongoDB and checked against a plain TypeScript implementation in tests.
 
-**Optional: let an LLM do the parsing (Groq + Llama).** Set `GROQ_API_KEY` (and optionally
+**Optional: let an LLM do the parsing (Groq).** Set `GROQ_API_KEY` (and optionally
 `GROQ_MODEL`, default `openai/gpt-oss-20b`, and `GROQ_TIMEOUT_MS`, default 2000) and the search
 text is first sent to Groq, which returns JSON filters for phrasings the rules do not cover
 ("somewhere cheap for biryani around Delhi"). The model never writes queries: its JSON is validated

@@ -135,7 +135,23 @@ describe('createGroqClient', () => {
       model: 'openai/gpt-oss-20b',
       temperature: 0,
       response_format: { type: 'json_object' },
+      reasoning_effort: 'low',
+      max_completion_tokens: 1000,
     });
+    vi.unstubAllGlobals();
+  });
+
+  it('does not send reasoning_effort to models that reject it', async () => {
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(Response.json({ choices: [{ message: { content: '{}' } }] })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await createGroqClient({ ...options, model: 'llama-3.1-8b-instant' })({
+      system: 'S',
+      user: 'U',
+    });
+    const init = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(init.body as string)).not.toHaveProperty('reasoning_effort');
     vi.unstubAllGlobals();
   });
 

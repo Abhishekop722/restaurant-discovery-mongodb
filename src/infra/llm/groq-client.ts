@@ -7,6 +7,12 @@ export interface GroqOptions {
   baseUrl?: string;
 }
 
+/** Reasoning models spend tokens thinking before they answer, so leave room for both. */
+const MAX_COMPLETION_TOKENS = 1000;
+
+/** `reasoning_effort` is only accepted by the gpt-oss models; other models reject it. */
+const supportsReasoningEffort = (model: string): boolean => model.startsWith('openai/gpt-oss');
+
 interface ChatCompletion {
   choices?: { message?: { content?: string | null } }[];
 }
@@ -25,7 +31,9 @@ export function createGroqClient({
       body: JSON.stringify({
         model,
         temperature: 0,
-        max_tokens: 400,
+        max_completion_tokens: MAX_COMPLETION_TOKENS,
+        // extraction needs little thinking, which keeps latency and token use down
+        ...(supportsReasoningEffort(model) && { reasoning_effort: 'low' }),
         response_format: { type: 'json_object' },
         messages: [
           { role: 'system', content: system },
